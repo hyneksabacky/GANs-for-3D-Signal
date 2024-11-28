@@ -1,6 +1,4 @@
 import torch.nn as nn
-import torchvision.datasets as dataset
-
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -15,25 +13,23 @@ class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
         self.main = nn.Sequential(
-            # input 1824
+            # Input size: 256
             nn.Conv1d(1, 64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size 912
+            # State size: 128
             nn.Conv1d(64, 128, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size 456
-            nn.Conv1d(128, 256, kernel_size=4,
-                      stride=2, padding=1, bias=False),
+            # State size: 64
+            nn.Conv1d(128, 256, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(256),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size 228
-            nn.Conv1d(256, 512, kernel_size=4,
-                      stride=2, padding=1, bias=False),
+            # State size: 32
+            nn.Conv1d(256, 512, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(512),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size 114
-            nn.Conv1d(512, 1, kernel_size=114, stride=1, padding=0, bias=False),
+            # State size: 16
+            nn.Conv1d(512, 1, kernel_size=16, stride=1, padding=0, bias=False),
             nn.Sigmoid()
         )
 
@@ -46,24 +42,26 @@ class Generator(nn.Module):
     def __init__(self, nz):
         super().__init__()
         self.main = nn.Sequential(
-            nn.ConvTranspose1d(nz, 512, 114, 1, 0, bias=False),
+            # Input: latent vector (nz)
+            nn.ConvTranspose1d(nz, 512, kernel_size=16, stride=1, padding=0, bias=False),
             nn.BatchNorm1d(512),
             nn.ReLU(True),
-
-            nn.ConvTranspose1d(512, 256, 4, 2, 1, bias=False),
+            # State size: 16
+            nn.ConvTranspose1d(512, 256, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(True),
-
-            nn.ConvTranspose1d(256, 128, 4, 2, 1, bias=False),
+            # State size: 32
+            nn.ConvTranspose1d(256, 128, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(128),
             nn.ReLU(True),
-
-            nn.ConvTranspose1d(128, 64, 4, 2, 1, bias=False),
+            # State size: 64
+            nn.ConvTranspose1d(128, 64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm1d(64),
             nn.ReLU(True),
-
-            nn.ConvTranspose1d(64, 1, 4, 2, 1, bias=False),
+            # State size: 128
+            nn.ConvTranspose1d(64, 1, kernel_size=4, stride=2, padding=1, bias=False),
             nn.Tanh()
+            # Output size: 256
         )
 
     def forward(self, x):

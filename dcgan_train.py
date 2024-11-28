@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dcgan import Discriminator, Generator, weights_init
 from preprocessing import Dataset
-
+import sys
 
 lr = 2e-4
 beta1 = 0.5
@@ -16,11 +16,15 @@ batch_size = 8
 nz = 100  # length of noise
 ngpu = 0
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cpu")
 
 
 def main():
     # load training data
-    trainset = Dataset('./data/brilliant_blue')
+    trainset = Dataset('./data/acce_data_xyz.h5', '"walk"')
+
+    # print(trainset.dataset)
+    # sys.exit()
 
     trainloader = torch.utils.data.DataLoader(
         trainset, batch_size=batch_size, shuffle=True
@@ -96,8 +100,10 @@ def main():
             plt.close()
     
     # save models
-    torch.save(netG, './nets/dcgan_netG.pkl')
+    torch.save(netG.state_dict(), './nets/dcgan_netG.pkl')
     torch.save(netD, './nets/dcgan_netD.pkl')
+
+
 
 
 if __name__ == '__main__':
