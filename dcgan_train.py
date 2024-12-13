@@ -18,7 +18,6 @@ ngpu = 0
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #device = torch.device("cpu")
 
-
 def main():
     # load training data
     trainset = Dataset('./data/acce_data_xyz.h5', '"walk"')
@@ -37,7 +36,6 @@ def main():
     netG = Generator(nz).to(device)
     netG.apply(weights_init)
 
-
     criterion = nn.BCELoss()
 
     # used for visualzing training process
@@ -49,15 +47,27 @@ def main():
     optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
 
+    G_losses = []
+    D_losses = []
+
+    axes_names = ['X', 'Y', 'Z']
+
     for epoch in range(epoch_num):
         for step, (data, _) in enumerate(trainloader):
 
+            # real_cpu = data.to(device).squeeze(1)
+            # # Ensure input is [batch_size, num_channels, sequence_length]
+            # real_cpu = data.to(device).permute(0, 2, 1)  # Swap axes 1 and 2
             real_cpu = data.to(device)
+
+            print(f"Input shape to Discriminator: {real_cpu.shape}")
             b_size = real_cpu.size(0)
 
             # train netD
-            label = torch.full((b_size,), real_label,
+            label = torch.full((b_size*3,), real_label,
                                dtype=torch.float, device=device)
+            print("label shape: ", label.shape)
+            #sys.exit()
             netD.zero_grad()
             output = netD(real_cpu).view(-1)
             errD_real = criterion(output, label)
@@ -86,25 +96,36 @@ def main():
             print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
                   % (epoch, epoch_num, step, len(trainloader),
                      errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+            
+            G_losses.append(errG.item())
+            D_losses.append(errD.item())
 
         # save training process
         with torch.no_grad():
             fake = netG(fixed_noise).detach().cpu()
-            f, a = plt.subplots(4, 4, figsize=(8, 8))
-            for i in range(4):
+            f, axes = plt.subplots(3, 4, figsize=(12, 9))
+            for i in range(3):
                 for j in range(4):
-                    a[i][j].plot(fake[i * 4 + j].view(-1))
-                    a[i][j].set_xticks(())
-                    a[i][j].set_yticks(())
+                    axes[i, j].plot(fake[j, i, :].view(-1).numpy())
+                    axes[i, j].set_xticks(())
+                    axes[i, j].set_yticks(())
+                    axes[i, j].set_title(f'{axes_names[i]}')
             plt.savefig('./img/dcgan_epoch_%d.png' % epoch)
             plt.close()
-    
+
+        
+    plt.figure(figsize=(10,5))
+    plt.title("Generator and Discriminator Loss During Training")
+    plt.plot(G_losses,label="G")
+    plt.plot(D_losses,label="D")
+    plt.xlabel("iterations")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.show()
+
     # save models
     torch.save(netG.state_dict(), './nets/dcgan_netG.pkl')
     torch.save(netD, './nets/dcgan_netD.pkl')
-
-
-
 
 if __name__ == '__main__':
     main()

@@ -13,8 +13,8 @@ class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
         self.main = nn.Sequential(
-            # Input size: 256
-            nn.Conv1d(1, 64, kernel_size=4, stride=2, padding=1, bias=False),
+            # Input size: 256, 3 channels
+            nn.Conv1d(3, 64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # State size: 128
             nn.Conv1d(64, 128, kernel_size=4, stride=2, padding=1, bias=False),
@@ -29,7 +29,7 @@ class Discriminator(nn.Module):
             nn.BatchNorm1d(512),
             nn.LeakyReLU(0.2, inplace=True),
             # State size: 16
-            nn.Conv1d(512, 1, kernel_size=16, stride=1, padding=0, bias=False),
+            nn.Conv1d(512, 3, kernel_size=16, stride=1, padding=0, bias=False),
             nn.Sigmoid()
         )
 
@@ -59,11 +59,12 @@ class Generator(nn.Module):
             nn.BatchNorm1d(64),
             nn.ReLU(True),
             # State size: 128
-            nn.ConvTranspose1d(64, 1, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.ConvTranspose1d(64, 3, kernel_size=4, stride=2, padding=1, bias=False),  # Output 3 channels
             nn.Tanh()
-            # Output size: 256
+            # Output size: 256, 3 channels
         )
 
     def forward(self, x):
         x = self.main(x)
         return x
+    

@@ -37,39 +37,25 @@ def load_file_to_torch(path: str, activity: str) -> torch.Tensor:
 class Dataset():
     def __init__(self, root, activity):
         self.root = root
-        #self.dataset = self.build_dataset()
         self.dataset = self.load_file(root, activity)
-        self.length = self.dataset.shape[1]
+        self.length = self.dataset.shape[0]  # Number of samples
         self.minmax_normalize()
 
     def __len__(self):
         return self.length
 
     def __getitem__(self, idx):
-        step = self.dataset[:, idx]
-        step = torch.unsqueeze(step, 0)
-        # target = self.label[idx]
+        step = self.dataset[idx, :, :]  # Retrieve one sample
         target = 0  # only one class
         return step, target
 
-    def build_dataset(self):
-        '''get dataset of signal'''
-        dataset = []
-        for _file in os.listdir(self.root):
-            sample = np.loadtxt(os.path.join(self.root, _file)).T
-            dataset.append(sample)
-        dataset = np.vstack(dataset).T
-        dataset = torch.from_numpy(dataset).float()
-
-        return dataset
-
     def minmax_normalize(self):
-        '''return minmax normalize dataset'''
-        for index in range(self.length):
-            self.dataset[:, index] = (self.dataset[:, index] - self.dataset[:, index].min()) / (
-                self.dataset[:, index].max() - self.dataset[:, index].min())
-            
-    def load_file(self, path: str, activity: str) -> pd.DataFrame:
+        '''Min-max normalize dataset.'''
+        for i in range(self.dataset.shape[1]):  # Loop over channels
+            self.dataset[:, i, :] = (self.dataset[:, i, :] - self.dataset[:, i, :].min()) / (
+                self.dataset[:, i, :].max() - self.dataset[:, i, :].min())
+
+    def load_file(self, path: str, activity: str) -> torch.Tensor:
         with h5py.File(path, 'r') as hf:
             data = []
 
@@ -84,19 +70,27 @@ class Dataset():
                 
                 # Append dataset name and label to data dictionary
                   # Extracting data from dataset
-                first_column = np.array([row[0] for row in dataset[:]])
-                data.append(first_column)
+                # first_column = np.array([row[0] for row in dataset[:]])
+                # data.append(first_column)
+                data.append(dataset[:])
 
         # shorten all samples to the length of the shortest sample
         min_length = 256
-        # only take data that have atleast min_length samples
-        data = [sample[:min_length] for sample in data if len(sample) >= min_length]
+        data = [sample[:min_length, :] for sample in data if sample.shape[0] >= min_length]
 
         #replace nan values with 0
         data = np.nan_to_num(data)
 
-        dataset = np.vstack(data).T
+        # Stack data to create a 3D array: [batch_size, sequence_length, num_axes]
+        data = np.stack(data, axis=0)  # Shape: [batch_size, sequence_length, num_axes]
+
+        # Transpose to match Conv1d input: [batch_size, num_axes, sequence_length]
+        dataset = np.transpose(data, (0, 2, 1))  # Shape: [batch_size, num_axes, sequence_length]
+
         dataset = torch.from_numpy(dataset).float()
+
+        # Print shape for debugging
+        print(f"Loaded dataset shape: {dataset.shape}")
 
         return dataset
 
