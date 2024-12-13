@@ -16,6 +16,7 @@ batch_size = 8
 nz = 100  # length of noise
 ngpu = 0
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+nd = 3 # number of dimensions
 #device = torch.device("cpu")
 
 def main():
@@ -64,7 +65,7 @@ def main():
             b_size = real_cpu.size(0)
 
             # train netD
-            label = torch.full((b_size*3,), real_label,
+            label = torch.full((b_size*nd,), real_label,
                                dtype=torch.float, device=device)
             print("label shape: ", label.shape)
             #sys.exit()
@@ -103,8 +104,8 @@ def main():
         # save training process
         with torch.no_grad():
             fake = netG(fixed_noise).detach().cpu()
-            f, axes = plt.subplots(3, 4, figsize=(12, 9))
-            for i in range(3):
+            f, axes = plt.subplots(nd, 4, figsize=(12, 9))
+            for i in range(nd):
                 for j in range(4):
                     axes[i, j].plot(fake[j, i, :].view(-1).numpy())
                     axes[i, j].set_xticks(())
