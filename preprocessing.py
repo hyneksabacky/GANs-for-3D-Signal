@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.fftpack import dct, idct
 import pandas as pd
 import h5py
+import sys
 
 # Function to apply DCT on each axis
 def apply_dct(data):
@@ -35,9 +36,10 @@ def load_file_to_torch(path: str, activity: str) -> torch.Tensor:
 
 
 class Dataset():
-    def __init__(self, root, activity):
+    def __init__(self, root, activities):
         self.root = root
-        self.dataset = self.load_file(root, activity)
+        self.activities = activities
+        self.dataset, self.labels = self.load_file(root, activities)
         self.length = self.dataset.shape[0]  # Number of samples
         self.minmax_normalize()
 
@@ -46,7 +48,7 @@ class Dataset():
 
     def __getitem__(self, idx):
         step = self.dataset[idx, :, :]  # Retrieve one sample
-        target = 0  # only one class
+        target = self.labels[idx]  # Retrieve corresponding label
         return step, target
 
     def minmax_normalize(self):
@@ -55,9 +57,10 @@ class Dataset():
             self.dataset[:, i, :] = (self.dataset[:, i, :] - self.dataset[:, i, :].min()) / (
                 self.dataset[:, i, :].max() - self.dataset[:, i, :].min())
 
-    def load_file(self, path: str, activity: str) -> torch.Tensor:
+    def load_file(self, path: str, activities: list) -> (torch.Tensor, torch.Tensor):
         with h5py.File(path, 'r') as hf:
             data = []
+            labels = []
 
             # Iterate over datasets
             for dataset_name in hf.keys():
@@ -65,14 +68,11 @@ class Dataset():
 
                 # Extract label metadata
                 label = dataset.attrs.get('activity', 'No Label')
-                if label != activity:
+                if label not in activities:
                     continue
-                
-                # Append dataset name and label to data dictionary
-                  # Extracting data from dataset
-                # first_column = np.array([row[0] for row in dataset[:]])
-                # data.append(first_column)
+
                 data.append(dataset[:])
+                labels.append(activities.index(label))
 
         # shorten all samples to the length of the shortest sample
         min_length = 256
@@ -88,11 +88,12 @@ class Dataset():
         dataset = np.transpose(data, (0, 2, 1))  # Shape: [batch_size, num_axes, sequence_length]
 
         dataset = torch.from_numpy(dataset).float()
+        labels = torch.tensor(labels, dtype=torch.long)
 
         # Print shape for debugging
         print(f"Loaded dataset shape: {dataset.shape}")
 
-        return dataset
+        return dataset, labels
 
 
 if __name__ == '__main__':

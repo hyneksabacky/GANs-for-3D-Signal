@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dcgan import Discriminator, Generator, weights_init
 from preprocessing import Dataset
-import sys
+from tqdm import tqdm
 
 lr = 2e-4
 beta1 = 0.5
@@ -17,14 +17,10 @@ nz = 100  # length of noise
 ngpu = 0
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 nd = 3 # number of dimensions
-#device = torch.device("cpu")
 
 def main():
-    # load training data
-    trainset = Dataset('./data/acce_data_xyz.h5', '"walk"')
-
-    # print(trainset.dataset)
-    # sys.exit()
+    activities = ['"walk"', '"lie"', '"car"', '"bus"', '"sit"']  # List of activities
+    trainset = Dataset('./data/acce_data_xyz.h5', activities)
 
     trainloader = torch.utils.data.DataLoader(
         trainset, batch_size=batch_size, shuffle=True
@@ -53,22 +49,16 @@ def main():
 
     axes_names = ['X', 'Y', 'Z']
 
+
+    loop = tqdm(enumerate(trainloader), total=len(trainloader))
     for epoch in range(epoch_num):
-        for step, (data, _) in enumerate(trainloader):
+        for step, (data, labels) in loop:
 
-            # real_cpu = data.to(device).squeeze(1)
-            # # Ensure input is [batch_size, num_channels, sequence_length]
-            # real_cpu = data.to(device).permute(0, 2, 1)  # Swap axes 1 and 2
             real_cpu = data.to(device)
-
-            print(f"Input shape to Discriminator: {real_cpu.shape}")
             b_size = real_cpu.size(0)
 
             # train netD
-            label = torch.full((b_size*nd,), real_label,
-                               dtype=torch.float, device=device)
-            print("label shape: ", label.shape)
-            #sys.exit()
+            label = torch.full((b_size*nd,), real_label, dtype=torch.float, device=device)
             netD.zero_grad()
             output = netD(real_cpu).view(-1)
             errD_real = criterion(output, label)
@@ -94,9 +84,9 @@ def main():
             D_G_z2 = output.mean().item()
             optimizerG.step()
 
-            print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                  % (epoch, epoch_num, step, len(trainloader),
-                     errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+            # print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
+            #       % (epoch, epoch_num, step, len(trainloader),
+            #          errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
             
             G_losses.append(errG.item())
             D_losses.append(errD.item())
@@ -125,7 +115,7 @@ def main():
     plt.show()
 
     # save models
-    torch.save(netG.state_dict(), './nets/dcgan_netG.pkl')
+    torch.save(netG.state_dict(), './nets/dcgan_netG_more_activities.pkl')
     torch.save(netD, './nets/dcgan_netD.pkl')
 
 if __name__ == '__main__':
