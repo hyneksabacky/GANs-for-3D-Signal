@@ -11,16 +11,21 @@ from tqdm import tqdm
 
 lr = 2e-4
 beta1 = 0.5
-epoch_num = 32
-batch_size = 8
+epoch_num = 128
+batch_size = 128
 nz = 100  # length of noise
 ngpu = 0
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-nd = 3 # number of dimensions
+nd = 6 # number of dimensions
+
+activities = {'"walk"' : 0, '"sit"' : 1, '"car"' : 2}#, '"bus"' : 3, '"lie"' : 4}  # List of activities
 
 def main():
-    activities = ['"walk"', '"lie"', '"car"', '"bus"', '"sit"']  # List of activities
+    # activities = ['"walk"', '"lie"', '"car"', '"bus"', '"sit"']  # List of activities
     trainset = Dataset('./data/acce_data_xyz.h5', activities)
+
+    # print shape of dataset
+    print(f"Loaded dataset shape: {trainset.dataset.shape}")
 
     trainloader = torch.utils.data.DataLoader(
         trainset, batch_size=batch_size, shuffle=True
@@ -47,38 +52,42 @@ def main():
     G_losses = []
     D_losses = []
 
-    axes_names = ['X', 'Y', 'Z']
+    axes_names = ['aX', 'aY', 'aZ', 'gX', 'gY', 'gZ']
 
 
-    loop = tqdm(enumerate(trainloader), total=len(trainloader))
-    for epoch in range(epoch_num):
-        for step, (data, labels) in loop:
+    loop = tqdm(range(epoch_num), total=epoch_num, leave=False)
+    for epoch in loop:
+        for step, (data, labels) in enumerate(trainloader):
+            labels = labels.to(device)
+            labels_one_hot = torch.zeros(labels.size(0), len(activities.keys()), device=device)
+            labels_one_hot.scatter_(1, labels.view(-1, 1), 1)
 
             real_cpu = data.to(device)
             b_size = real_cpu.size(0)
 
             # train netD
-            label = torch.full((b_size*nd,), real_label, dtype=torch.float, device=device)
+            label = torch.full((b_size,), real_label, dtype=torch.float, device=device)
             netD.zero_grad()
-            output = netD(real_cpu).view(-1)
+            output = netD(real_cpu, labels_one_hot).view(-1)
             errD_real = criterion(output, label)
             errD_real.backward()
             D_x = output.mean().item()
 
-            # train netG
             noise = torch.randn(b_size, nz, 1, device=device)
-            fake = netG(noise)
+            fake = netG(noise, labels_one_hot)
             label.fill_(fake_label)
-            output = netD(fake.detach()).view(-1)
+            output = netD(fake.detach(), labels_one_hot).view(-1)
             errD_fake = criterion(output, label)
             errD_fake.backward()
             D_G_z1 = output.mean().item()
             errD = errD_real + errD_fake
             optimizerD.step()
-            netG.zero_grad()
 
+            # train netG
+            netG.zero_grad()
             label.fill_(real_label)
-            output = netD(fake).view(-1)
+
+            output = netD(fake, labels_one_hot).view(-1)
             errG = criterion(output, label)
             errG.backward()
             D_G_z2 = output.mean().item()
@@ -91,18 +100,18 @@ def main():
             G_losses.append(errG.item())
             D_losses.append(errD.item())
 
-        # save training process
-        with torch.no_grad():
-            fake = netG(fixed_noise).detach().cpu()
-            f, axes = plt.subplots(nd, 4, figsize=(12, 9))
-            for i in range(nd):
-                for j in range(4):
-                    axes[i, j].plot(fake[j, i, :].view(-1).numpy())
-                    axes[i, j].set_xticks(())
-                    axes[i, j].set_yticks(())
-                    axes[i, j].set_title(f'{axes_names[i]}')
-            plt.savefig('./img/dcgan_epoch_%d.png' % epoch)
-            plt.close()
+        # # save training process
+        # with torch.no_grad():
+        #     fake = netG(fixed_noise).detach().cpu()
+        #     f, axes = plt.subplots(nd, 4, figsize=(12, 9))
+        #     for i in range(nd):
+        #         for j in range(4):
+        #             axes[i, j].plot(fake[j, i, :].view(-1).numpy())
+        #             axes[i, j].set_xticks(())
+        #             axes[i, j].set_yticks(())
+        #             axes[i, j].set_title(f'{axes_names[i]}')
+        #     plt.savefig('./img/dcgan_epoch_%d.png' % epoch)
+        #     plt.close()
 
         
     plt.figure(figsize=(10,5))

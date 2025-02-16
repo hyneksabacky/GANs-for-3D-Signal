@@ -61,6 +61,7 @@ class Dataset():
         with h5py.File(path, 'r') as hf:
             data = []
             labels = []
+            a_keys = list(activities.keys())
 
             # Iterate over datasets
             for dataset_name in hf.keys():
@@ -68,11 +69,14 @@ class Dataset():
 
                 # Extract label metadata
                 label = dataset.attrs.get('activity', 'No Label')
-                if label not in activities:
+                if label not in a_keys:
                     continue
 
+                # double each row to have 6 axes
+                dataset = np.repeat(dataset, 2, axis=1)
+
                 data.append(dataset[:])
-                labels.append(activities.index(label))
+                labels.append(activities[label])
 
         # shorten all samples to the length of the shortest sample
         min_length = 256
